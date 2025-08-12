@@ -14,7 +14,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y patch
 
       - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: 'npm' }
+        with: { node-version: 22.18.0, cache: 'npm' }
       - run: npm ci
       - run: |
           if [ -d cordova-plugin-moodleapp ]; then
