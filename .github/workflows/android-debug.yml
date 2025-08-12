@@ -1,19 +1,24 @@
 name: Android Debug APK
 on:
   workflow_dispatch:
-  push: { branches: [ main ] }
+  push:
+    branches: [ main ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
 
+      # Needed by patch-package (if used during postinstall)
       - name: Install OS deps
         run: sudo apt-get update && sudo apt-get install -y patch
 
       - uses: actions/setup-node@v4
-        with: { node-version: 22.18.0, cache: 'npm' }
+        with:
+          node-version: 22.18.0
+          cache: npm
 
       - name: Install JS deps (app)
         run: npm ci --no-audit --no-fund
@@ -27,12 +32,14 @@ jobs:
             cd ..
           fi
 
+      # Web build is optional when server.url is set, but harmless to keep
       - name: Web build (www/)
         run: npx --yes @ionic/cli@latest ionic build || mkdir -p www
 
       - name: Install Capacitor Android (no-save)
         run: npm i --no-save @capacitor/android@latest
 
+      # Ensure the Cordova plugin has the file Capacitor expects; create a stub if no build step exists
       - name: Build/prepare cordova-plugin-moodleapp
         run: |
           if [ -d cordova-plugin-moodleapp ]; then
@@ -53,6 +60,7 @@ jobs:
       - name: Add Android platform
         run: npx --yes @capacitor/cli@latest add android
 
+      # Capacitor writes JSON here even if webDir is empty because server.url is set
       - name: Prepare Android assets dir
         run: |
           mkdir -p android/app/src/main/assets/public
@@ -61,13 +69,12 @@ jobs:
       - name: Capacitor sync android
         run: npx --yes @capacitor/cli@latest sync android
 
-      # ✅ Enforce AndroidX/Jetifier flags
+      # Enforce AndroidX/Jetifier and exclude legacy support libs to avoid duplicate resource attrs
       - name: Enforce AndroidX flags
         run: |
           echo "android.useAndroidX=true" >> android/gradle.properties
           echo "android.enableJetifier=true" >> android/gradle.properties
 
-      # ✅ Exclude legacy com.android.support in the :app module (safe/idempotent)
       - name: Exclude legacy support libs in :app
         run: |
           FILE="android/app/build.gradle"
@@ -75,8 +82,14 @@ jobs:
             printf '\n/** CI_EXCLUDE_SUPPORT_BEGIN **/\nconfigurations.configureEach {\n  exclude group: "com.android.support"\n}\n/** CI_EXCLUDE_SUPPORT_END **/\n' >> "$FILE"
           fi
 
+      # Use JDK 21 (compile error previously showed "invalid source release: 21" with JDK 17)
       - uses: actions/setup-java@v4
-        with: { distribution: 'temurin', java-version: '17' }
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Show Java version
+        run: java -version
 
       - uses: android-actions/setup-android@v3
 
@@ -88,7 +101,14 @@ jobs:
       - name: Ensure gradlew is executable
         run: chmod +x android/gradlew
 
-      # Optional: dependency tree to diagnose if it still fails
+      # Make Gradle use the setup-java JDK
+      - name: Force Gradle to use this JDK
+        run: |
+          echo "" >> android/gradle.properties
+          echo "# CI: use setup-java JDK" >> android/gradle.properties
+          echo "org.gradle.java.home=${JAVA_HOME}" >> android/gradle.properties
+
+      # Optional diagnostics if something still conflicts
       - name: Dependency tree (debug)
         run: |
           cd android
