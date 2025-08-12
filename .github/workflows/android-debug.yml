@@ -30,7 +30,10 @@ jobs:
       - name: Web build (www/)
         run: npx --yes @ionic/cli@latest ionic build
 
-      - name: Ensure Capacitor CLI & Android platform
+      - name: Install Capacitor Android (no-save)
+        run: npm i --no-save @capacitor/android@latest
+
+      - name: Ensure Capacitor Android platform
         run: |
           npx --yes @capacitor/cli@latest --version
           if [ ! -d android ]; then
