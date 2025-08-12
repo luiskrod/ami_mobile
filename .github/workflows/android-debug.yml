@@ -83,12 +83,22 @@ jobs:
             printf '\n/** CI_EXCLUDE_SUPPORT_BEGIN **/\nconfigurations.configureEach {\n  exclude group: "com.android.support"\n}\n/** CI_EXCLUDE_SUPPORT_END **/\n' >> "$FILE"
           fi
 
-      # 🔧 Patch QRScanner source import to AndroidX (Jetifier doesn't touch java sources)
-      - name: Patch QRScanner to AndroidX
+      # 🔧 Patch ALL ActivityCompat imports to AndroidX, with a before/after printout
+      - name: Patch ActivityCompat to AndroidX (with verify)
         run: |
-          SRC="android/capacitor-cordova-android-plugins/src/main/java/com/bitpay/cordova/qrscanner/QRScanner.java"
-          if [ -f "$SRC" ]; then
-            sed -i 's@android\.support\.v4\.app\.ActivityCompat@androidx.core.app.ActivityCompat@g' "$SRC"
+          echo "Before patch (ActivityCompat support imports, if any):"
+          grep -R --line-number "android.support.v4.app.ActivityCompat" android || true
+          files=$(grep -R -l "android.support.v4.app.ActivityCompat" android || true)
+          if [ -n "$files" ]; then
+            echo "$files" | xargs sed -i 's@android\.support\.v4\.app\.ActivityCompat@androidx.core.app.ActivityCompat@g'
+            echo "After patch:"
+            if grep -R --line-number "android.support.v4.app.ActivityCompat" android; then
+              echo "::warning ::Some ActivityCompat support imports remain; we will still try to compile."
+            else
+              echo "OK: no more ActivityCompat support imports"
+            fi
+          else
+            echo "No ActivityCompat support imports found to patch."
           fi
 
       # Ensure androidx.core is on the classpath (ActivityCompat lives here)
@@ -96,7 +106,6 @@ jobs:
         run: |
           APP="android/app/build.gradle"
           if ! grep -q "androidx.core:core" "$APP"; then
-            # Insert after 'dependencies {' the first time
             sed -i '/dependencies\s*{/a \    implementation "androidx.core:core:1.13.1"' "$APP"
           fi
 
