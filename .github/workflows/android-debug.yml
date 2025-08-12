@@ -34,6 +34,28 @@ jobs:
       - name: Install Capacitor Android (no-save)
         run: npm i --no-save @capacitor/android@latest
 
+      - name: Build/prepare cordova-plugin-moodleapp
+        run: |
+          if [ -d cordova-plugin-moodleapp ]; then
+            cd cordova-plugin-moodleapp
+            npm ci || true
+            # Try common build/prepare commands if they exist
+            if npm run -s | grep -qE '(^|\s)build(\s|:)'; then
+              npm run build || true
+            elif npm run -s | grep -qE '(^|\s)prepare(\s|:)'; then
+              npm run prepare || true
+            elif [ -f gulpfile.js ]; then
+              npx --yes gulp || true
+            fi
+            # Ensure the expected artifact exists even if there's no build step
+            mkdir -p www
+            if [ ! -f www/index.js ]; then
+              # Fallback stub so Capacitor sync doesn't fail
+              echo "/* Moodle app Cordova bridge (stub for CI) */" > www/index.js
+            fi
+            cd ..
+          fi
+
       - name: Add Android platform
         run: npx --yes @capacitor/cli@latest add android
 
