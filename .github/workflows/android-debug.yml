@@ -1,7 +1,7 @@
 name: Android Debug APK
 on:
   workflow_dispatch:
-  push: { branches: [ main ] }  # or your dev branch
+  push: { branches: [ main ] }
 
 jobs:
   build:
@@ -9,26 +9,40 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-
       - name: Install OS deps
         run: sudo apt-get update && sudo apt-get install -y patch
 
       - uses: actions/setup-node@v4
         with: { node-version: 22.18.0, cache: 'npm' }
-      - run: npm ci
-      - run: |
+
+      - name: Install JS deps (app)
+        run: npm ci --no-audit --no-fund
+
+      - name: Build local plugin (if present)
+        run: |
           if [ -d cordova-plugin-moodleapp ]; then
             cd cordova-plugin-moodleapp
             npm ci || true
             npm run build || true
             cd ..
           fi
-      - run: npx ionic build
-      - run: npx cap sync android
+
+      - name: Web build (www/)
+        run: npx --yes @ionic/cli@latest ionic build
+
+      - name: Ensure Capacitor CLI & Android platform
+        run: |
+          npx --yes @capacitor/cli@7.0.2 cap --version
+          if [ ! -d android ]; then
+            npx --yes @capacitor/cli@7.0.2 cap add android
+          fi
+          npx --yes @capacitor/cli@7.0.2 cap sync android
 
       - uses: actions/setup-java@v4
         with: { distribution: 'temurin', java-version: '17' }
+
       - uses: android-actions/setup-android@v3
+
       - name: Accept licenses & install SDK pieces
         run: |
           yes | sdkmanager --licenses >/dev/null
