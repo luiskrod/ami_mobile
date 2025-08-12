@@ -69,12 +69,13 @@ jobs:
       - name: Capacitor sync android
         run: npx --yes @capacitor/cli@latest sync android
 
-      # Enforce AndroidX/Jetifier and exclude legacy support libs to avoid duplicate resource attrs
+      # Enforce AndroidX/Jetifier (helps when AAR/JAR deps still reference support libs)
       - name: Enforce AndroidX flags
         run: |
           echo "android.useAndroidX=true" >> android/gradle.properties
           echo "android.enableJetifier=true" >> android/gradle.properties
 
+      # Exclude any lingering com.android.support deps at :app level (safe/idempotent)
       - name: Exclude legacy support libs in :app
         run: |
           FILE="android/app/build.gradle"
@@ -82,7 +83,24 @@ jobs:
             printf '\n/** CI_EXCLUDE_SUPPORT_BEGIN **/\nconfigurations.configureEach {\n  exclude group: "com.android.support"\n}\n/** CI_EXCLUDE_SUPPORT_END **/\n' >> "$FILE"
           fi
 
-      # Use JDK 21 (compile error previously showed "invalid source release: 21" with JDK 17)
+      # 🔧 Patch QRScanner source import to AndroidX (Jetifier doesn't touch java sources)
+      - name: Patch QRScanner to AndroidX
+        run: |
+          SRC="android/capacitor-cordova-android-plugins/src/main/java/com/bitpay/cordova/qrscanner/QRScanner.java"
+          if [ -f "$SRC" ]; then
+            sed -i 's@android\.support\.v4\.app\.ActivityCompat@androidx.core.app.ActivityCompat@g' "$SRC"
+          fi
+
+      # Ensure androidx.core is on the classpath (ActivityCompat lives here)
+      - name: Ensure androidx.core dependency
+        run: |
+          APP="android/app/build.gradle"
+          if ! grep -q "androidx.core:core" "$APP"; then
+            # Insert after 'dependencies {' the first time
+            sed -i '/dependencies\s*{/a \    implementation "androidx.core:core:1.13.1"' "$APP"
+          fi
+
+      # Use JDK 21 (project compiles with source/target 21)
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
