@@ -27,19 +27,24 @@ jobs:
             cd ..
           fi
 
+      # Web build is optional when server.url is set, but harmless to keep
       - name: Web build (www/)
-        run: npx --yes @ionic/cli@latest ionic build
+        run: npx --yes @ionic/cli@latest ionic build || mkdir -p www
 
       - name: Install Capacitor Android (no-save)
         run: npm i --no-save @capacitor/android@latest
 
-      - name: Ensure Capacitor Android platform
+      - name: Add Android platform
+        run: npx --yes @capacitor/cli@latest add android
+
+      # ✅ Create assets directories so Capacitor can drop its JSON files there
+      - name: Prepare Android assets dir
         run: |
-          npx --yes @capacitor/cli@latest --version
-          if [ ! -d android ]; then
-            npx --yes @capacitor/cli@latest add android
-          fi
-          npx --yes @capacitor/cli@latest sync android
+          mkdir -p android/app/src/main/assets/public
+          mkdir -p android/app/src/main/assets
+
+      - name: Capacitor sync android
+        run: npx --yes @capacitor/cli@latest sync android
 
       - uses: actions/setup-java@v4
         with: { distribution: 'temurin', java-version: '17' }
@@ -50,6 +55,9 @@ jobs:
         run: |
           yes | sdkmanager --licenses >/dev/null
           sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools"
+
+      - name: Ensure gradlew is executable
+        run: chmod +x android/gradlew
 
       - name: Build debug APK
         run: |
