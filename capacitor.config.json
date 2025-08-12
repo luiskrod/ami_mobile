@@ -1,0 +1,9 @@
+{
+  "appId": "com.moodle.moodlemobile",
+  "appName": "Moodle Mobile",
+  "webDir": "www",
+  "server": {
+    "url": "https://opulent-waffle-qj7rggjg7xc94pg-8100.app.github.dev",
+    "cleartext": false
+  }
+}
