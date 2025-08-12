@@ -27,7 +27,6 @@ jobs:
             cd ..
           fi
 
-      # Web build is optional with server.url, but harmless (and creates www/ if needed)
       - name: Web build (www/)
         run: npx --yes @ionic/cli@latest ionic build || mkdir -p www
 
@@ -39,7 +38,6 @@ jobs:
           if [ -d cordova-plugin-moodleapp ]; then
             cd cordova-plugin-moodleapp
             npm ci || true
-            # Try common build/prepare commands if they exist
             if npm run -s | grep -qE '(^|\s)build(\s|:)'; then
               npm run build || true
             elif npm run -s | grep -qE '(^|\s)prepare(\s|:)'; then
@@ -47,18 +45,14 @@ jobs:
             elif [ -f gulpfile.js ]; then
               npx --yes gulp || true
             fi
-            # Ensure expected artifact exists even if there's no build step
             mkdir -p www
-            if [ ! -f www/index.js ]; then
-              echo "/* Moodle app Cordova bridge (stub for CI) */" > www/index.js
-            fi
+            [ -f www/index.js ] || echo "/* Moodle app Cordova bridge (stub for CI) */" > www/index.js
             cd ..
           fi
 
       - name: Add Android platform
         run: npx --yes @capacitor/cli@latest add android
 
-      # Create assets directories so Capacitor can drop its JSON files there
       - name: Prepare Android assets dir
         run: |
           mkdir -p android/app/src/main/assets/public
@@ -67,20 +61,19 @@ jobs:
       - name: Capacitor sync android
         run: npx --yes @capacitor/cli@latest sync android
 
-      # ✅ Fix duplicate resource attrs by enforcing AndroidX/Jetifier and excluding old support libs
-      - name: Enforce AndroidX / exclude legacy support libs
+      # ✅ Enforce AndroidX/Jetifier flags
+      - name: Enforce AndroidX flags
         run: |
           echo "android.useAndroidX=true" >> android/gradle.properties
           echo "android.enableJetifier=true" >> android/gradle.properties
-          cat >> android/build.gradle <<'GRADLE'
-            allprojects {
-              subprojects {
-                configurations.configureEach {
-                  exclude group: "com.android.support"
-                }
-              }
-            }
-            GRADLE
+
+      # ✅ Exclude legacy com.android.support in the :app module (safe/idempotent)
+      - name: Exclude legacy support libs in :app
+        run: |
+          FILE="android/app/build.gradle"
+          if ! grep -q "CI_EXCLUDE_SUPPORT_BEGIN" "$FILE"; then
+            printf '\n/** CI_EXCLUDE_SUPPORT_BEGIN **/\nconfigurations.configureEach {\n  exclude group: "com.android.support"\n}\n/** CI_EXCLUDE_SUPPORT_END **/\n' >> "$FILE"
+          fi
 
       - uses: actions/setup-java@v4
         with: { distribution: 'temurin', java-version: '17' }
@@ -95,11 +88,11 @@ jobs:
       - name: Ensure gradlew is executable
         run: chmod +x android/gradlew
 
-      # (Optional) Print dependency tree to help debug if build fails again
+      # Optional: dependency tree to diagnose if it still fails
       - name: Dependency tree (debug)
         run: |
           cd android
-          ./gradlew :app:dependencies --configuration debugRuntimeClasspath --no-daemon
+          ./gradlew :app:dependencies --configuration debugRuntimeClasspath --no-daemon || true
           cd ..
 
       - name: Build debug APK
