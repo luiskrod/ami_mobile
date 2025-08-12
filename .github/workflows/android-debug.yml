@@ -1,0 +1,42 @@
+name: Android Debug APK
+on:
+  workflow_dispatch:
+  push: { branches: [ main ] }  # or your dev branch
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: 'npm' }
+      - run: npm ci
+      - run: |
+          if [ -d cordova-plugin-moodleapp ]; then
+            cd cordova-plugin-moodleapp
+            npm ci || true
+            npm run build || true
+            cd ..
+          fi
+      - run: npx ionic build
+      - run: npx cap sync android
+
+      - uses: actions/setup-java@v4
+        with: { distribution: 'temurin', java-version: '17' }
+      - uses: android-actions/setup-android@v3
+      - name: Accept licenses & install SDK pieces
+        run: |
+          yes | sdkmanager --licenses >/dev/null
+          sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools"
+
+      - name: Build debug APK
+        run: |
+          cd android
+          ./gradlew --no-daemon assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: moodleapp-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
