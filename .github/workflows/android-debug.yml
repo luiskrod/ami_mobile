@@ -32,11 +32,11 @@ jobs:
 
       - name: Ensure Capacitor CLI & Android platform
         run: |
-          npx --yes @capacitor/cli@latest capacitor --version
+          npx --yes @capacitor/cli@latest --version
           if [ ! -d android ]; then
-            npx --yes @capacitor/cli@latest capacitor add android
+            npx --yes @capacitor/cli@latest add android
           fi
-          npx --yes @capacitor/cli@latest capacitor sync android
+          npx --yes @capacitor/cli@latest sync android
 
       - uses: actions/setup-java@v4
         with: { distribution: 'temurin', java-version: '17' }
