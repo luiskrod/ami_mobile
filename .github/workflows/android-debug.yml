@@ -27,7 +27,7 @@ jobs:
             cd ..
           fi
 
-      # Web build is optional when server.url is set, but harmless to keep
+      # Web build is optional with server.url, but harmless (and creates www/ if needed)
       - name: Web build (www/)
         run: npx --yes @ionic/cli@latest ionic build || mkdir -p www
 
@@ -47,10 +47,9 @@ jobs:
             elif [ -f gulpfile.js ]; then
               npx --yes gulp || true
             fi
-            # Ensure the expected artifact exists even if there's no build step
+            # Ensure expected artifact exists even if there's no build step
             mkdir -p www
             if [ ! -f www/index.js ]; then
-              # Fallback stub so Capacitor sync doesn't fail
               echo "/* Moodle app Cordova bridge (stub for CI) */" > www/index.js
             fi
             cd ..
@@ -59,7 +58,7 @@ jobs:
       - name: Add Android platform
         run: npx --yes @capacitor/cli@latest add android
 
-      # ✅ Create assets directories so Capacitor can drop its JSON files there
+      # Create assets directories so Capacitor can drop its JSON files there
       - name: Prepare Android assets dir
         run: |
           mkdir -p android/app/src/main/assets/public
@@ -67,6 +66,21 @@ jobs:
 
       - name: Capacitor sync android
         run: npx --yes @capacitor/cli@latest sync android
+
+      # ✅ Fix duplicate resource attrs by enforcing AndroidX/Jetifier and excluding old support libs
+      - name: Enforce AndroidX / exclude legacy support libs
+        run: |
+          echo "android.useAndroidX=true" >> android/gradle.properties
+          echo "android.enableJetifier=true" >> android/gradle.properties
+          cat >> android/build.gradle <<'GRADLE'
+            allprojects {
+              subprojects {
+                configurations.configureEach {
+                  exclude group: "com.android.support"
+                }
+              }
+            }
+            GRADLE
 
       - uses: actions/setup-java@v4
         with: { distribution: 'temurin', java-version: '17' }
@@ -80,6 +94,13 @@ jobs:
 
       - name: Ensure gradlew is executable
         run: chmod +x android/gradlew
+
+      # (Optional) Print dependency tree to help debug if build fails again
+      - name: Dependency tree (debug)
+        run: |
+          cd android
+          ./gradlew :app:dependencies --configuration debugRuntimeClasspath --no-daemon
+          cd ..
 
       - name: Build debug APK
         run: |
