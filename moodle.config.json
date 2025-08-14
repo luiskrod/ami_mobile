@@ -68,34 +68,24 @@
         "zh-tw": "正體中文"
     },
     "wsservice": "moodle_mobile_app",
-    "demo_sites": {
-        "student": {
-            "url": "https://school.moodledemo.net",
-            "username": "student",
-            "password": "moodle25"
-        },
-        "teacher": {
-            "url": "https://school.moodledemo.net",
-            "username": "teacher",
-            "password": "moodle25"
+    "demo_sites": {},
+    "skipssoconfirmation": true,
+    "sites": [
+        {
+            "url": "https://profesional.ami-hs.com",
+            "name": "AMI Professional"
         }
-    },
-    "defaultZoomLevel": "none",
-    "zoomlevels": {
-        "none": 100,
-        "medium": 110,
-        "high": 120
-    },
-    "customurlscheme": "moodlemobile",
-    "sites": [],
+    ],
+    "onlyallowlistedsites": true,
     "multisitesdisplay": "",
     "sitefindersettings": {},
-    "onlyallowlistedsites": false,
     "forcedefaultlanguage": false,
     "privacypolicy": "https://moodle.net/moodle-app-privacy/",
     "notificoncolor": "#f98012",
     "enableanalytics": false,
     "enableonboarding": true,
+    "forceLoginSkip": true,
+    "disableAccountsPage": true,
     "forceColorScheme": "",
     "forceLoginLogo": false,
     "showTopLogo": "hidden",

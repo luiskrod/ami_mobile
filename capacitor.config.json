@@ -4,6 +4,11 @@
   "webDir": "www",
   "server": {
     "url": "https://opulent-waffle-qj7rggjg7xc94pg-8100.app.github.dev",
-    "cleartext": false
+    "cleartext": false,
+    "allowNavigation": [
+      "*.app.github.dev",
+      "school.moodledemo.net",
+      "profesional.ami-hs.com"
+    ]
   }
 }
